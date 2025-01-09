@@ -28,7 +28,7 @@ const DigitalSignature = () => {
 
   const createKeys = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/create-keys', {
+      const response = await fetch('https://UmamRafa145.pythonanywhere.com/api/create-keys', {
         method: 'POST',
       });
       const data = await response.json();
@@ -77,7 +77,7 @@ const DigitalSignature = () => {
     formData.append('private_key', files.privateKey);
 
     try {
-      const response = await fetch('http://localhost:5000/api/sign', {
+      const response = await fetch('https://UmamRafa145.pythonanywhere.com/api/sign', {
         method: 'POST',
         body: formData
       });
@@ -128,7 +128,7 @@ const DigitalSignature = () => {
     formData.append('hash', files.hashFile);
 
     try {
-      const response = await fetch('http://localhost:5000/api/verify', {
+      const response = await fetch('https://UmamRafa145.pythonanywhere.com/api/verify', {
         method: 'POST',
         body: formData
       });
