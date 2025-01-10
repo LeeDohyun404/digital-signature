@@ -60,7 +60,7 @@ const DigitalSignature = () => {
 
     // Simulasi pembuatan hash dan tanda tangan
     const hashFileContent = "Simulasi hash file: 123456abcdef";
-    const signatureFileContent = "Simulasi signature: 7890ghijkl";
+    const signatureFileContent = "Simulasi signature: 123456abcdef";
 
     const downloadFile = (filename, content) => {
       const element = document.createElement("a");
@@ -81,7 +81,8 @@ const DigitalSignature = () => {
     });
   };
 
-  const verifyData = () => {
+  // Fungsi untuk memverifikasi data
+  const verifyData = async () => {
     if (!files.signatureFile || !files.publicKey || !files.hashFile) {
       setStatus({
         type: "error",
@@ -89,10 +90,23 @@ const DigitalSignature = () => {
       });
       return;
     }
-    setStatus({
-      type: "success",
-      message: "Verifikasi berhasil! Tanda tangan valid.",
-    });
+
+    // Baca file hash dan signature
+    const hashFileText = await files.hashFile.text();
+    const signatureFileText = await files.signatureFile.text();
+
+    // Verifikasi apakah hash cocok
+    if (hashFileText.trim() === signatureFileText.trim()) {
+      setStatus({
+        type: "success",
+        message: "Verifikasi berhasil! Tanda tangan valid.",
+      });
+    } else {
+      setStatus({
+        type: "error",
+        message: "Verifikasi gagal! Tanda tangan tidak valid.",
+      });
+    }
   };
 
   return (
