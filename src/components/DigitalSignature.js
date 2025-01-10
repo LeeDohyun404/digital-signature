@@ -19,7 +19,6 @@ const DigitalSignature = () => {
   });
   const [signedData, setSignedData] = useState(null);
 
-  // Effect to automatically verify whenever files change
   useEffect(() => {
     if (files.dataFile && files.hashFile && files.publicKey) {
       verifyData();
@@ -41,6 +40,23 @@ const DigitalSignature = () => {
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {
       bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes.buffer;
+  };
+
+  // Convert ArrayBuffer to hex string
+  const arrayBufferToHex = (buffer) => {
+    const byteArray = new Uint8Array(buffer);
+    return Array.from(byteArray)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+  };
+
+  // Convert hex string to ArrayBuffer
+  const hexToArrayBuffer = (hex) => {
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < hex.length; i += 2) {
+      bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
     }
     return bytes.buffer;
   };
@@ -117,10 +133,15 @@ const DigitalSignature = () => {
 
       const encoder = new TextEncoder();
       const dataBuffer = encoder.encode(data);
+      
+      // Convert data to hex
+      const dataHex = arrayBufferToHex(dataBuffer);
+      
+      // Calculate hash of hex data
       const hashBuffer = await window.crypto.subtle.digest("SHA-256", dataBuffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+      const hashHex = arrayBufferToHex(hashBuffer);
 
+      // Sign the data
       const signature = await window.crypto.subtle.sign(
         {
           name: "RSA-PSS",
@@ -130,12 +151,14 @@ const DigitalSignature = () => {
         dataBuffer
       );
 
+      const signatureHex = arrayBufferToHex(signature);
+
       setSignedData({
-        data: data,
-        signature: arrayBufferToBase64(signature),
+        data: dataHex,
+        signature: signatureHex,
       });
 
-      downloadFile("signed_data.txt", data);
+      downloadFile("signed_data.txt", dataHex);
       downloadFile("hash.txt", hashHex);
 
       setStatus({ type: "success", message: "Data berhasil ditandatangani! File data yang ditandatangani dan hash telah diunduh." });
@@ -151,16 +174,16 @@ const DigitalSignature = () => {
     }
 
     try {
-      const data = await files.dataFile.text();
+      const dataHex = await files.dataFile.text();
       const savedHash = await files.hashFile.text();
       const publicKeyContent = await files.publicKey.text();
 
+      // Convert hex data back to buffer
+      const dataBuffer = hexToArrayBuffer(dataHex);
+      
       // Calculate hash of current data
-      const encoder = new TextEncoder();
-      const dataBuffer = encoder.encode(data);
       const hashBuffer = await window.crypto.subtle.digest("SHA-256", dataBuffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+      const hashHex = arrayBufferToHex(hashBuffer);
 
       // Verify hash
       if (hashHex !== savedHash) {
@@ -234,7 +257,7 @@ const DigitalSignature = () => {
             <TabsContent value="verify-data">
               <div className="space-y-4 p-4">
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium">Upload Data File yang Ditandatangani</label>
+                  <label className="block text-sm font-medium">Upload Data File yang Ditandatangani (Hex)</label>
                   <Input type="file" onChange={(e) => handleFileChange(e, "dataFile")} />
                 </div>
                 <div className="space-y-2">
