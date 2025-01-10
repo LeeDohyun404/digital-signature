@@ -136,7 +136,7 @@ const DigitalSignature = () => {
       const dataBuffer = encoder.encode(data);
       const hashBuffer = await window.crypto.subtle.digest("SHA-256", dataBuffer);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 
       // Sign the data
       const signature = await window.crypto.subtle.sign(
@@ -169,7 +169,7 @@ const DigitalSignature = () => {
 
   // Verify signature
   const verifyData = async () => {
-    if (!files.signatureFile || !files.publicKey || !files.dataFile || !files.hashFile) {
+    if (!files.signatureFile || !files.dataFile || !files.hashFile) {
       setStatus({
         type: "error",
         message: "Mohon upload semua file yang diperlukan.",
@@ -180,35 +180,15 @@ const DigitalSignature = () => {
     try {
       // Read all files
       const data = await files.dataFile.text();
-      const publicKeyContent = await files.publicKey.text();
       const signatureContent = await files.signatureFile.text();
       const savedHash = await files.hashFile.text();
-
-      // Extract base64 from PEM format
-      const publicKeyBase64 = publicKeyContent
-        .replace("-----BEGIN PUBLIC KEY-----", "")
-        .replace("-----END PUBLIC KEY-----", "")
-        .replace(/\n/g, "");
-
-      // Import public key
-      const publicKeyBuffer = base64ToArrayBuffer(publicKeyBase64);
-      const publicKey = await window.crypto.subtle.importKey(
-        "spki",
-        publicKeyBuffer,
-        {
-          name: "RSA-PSS",
-          hash: "SHA-256",
-        },
-        true,
-        ["verify"]
-      );
 
       // Verify hash
       const encoder = new TextEncoder();
       const dataBuffer = encoder.encode(data);
       const hashBuffer = await window.crypto.subtle.digest("SHA-256", dataBuffer);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 
       if (hashHex !== savedHash) {
         setStatus({
@@ -225,7 +205,7 @@ const DigitalSignature = () => {
           name: "RSA-PSS",
           saltLength: 32,
         },
-        publicKey,
+        null,
         signatureBuffer,
         dataBuffer
       );
@@ -313,10 +293,6 @@ const DigitalSignature = () => {
                 <div className="space-y-2">
                   <label className="block text-sm font-medium">Upload Hash File</label>
                   <Input type="file" onChange={(e) => handleFileChange(e, "hashFile")} />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium">Upload Public Key</label>
-                  <Input type="file" onChange={(e) => handleFileChange(e, "publicKey")} />
                 </div>
                 <Button onClick={verifyData} className="w-full">
                   Verify Data
