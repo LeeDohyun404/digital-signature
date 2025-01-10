@@ -24,13 +24,11 @@ const DigitalSignature = () => {
     setFiles((prev) => ({ ...prev, [type]: file }));
   };
 
-  // Function to convert ArrayBuffer to Base64 string
   const arrayBufferToBase64 = (buffer) => {
     const binary = String.fromCharCode(...new Uint8Array(buffer));
     return window.btoa(binary);
   };
 
-  // Function to convert Base64 to ArrayBuffer
   const base64ToArrayBuffer = (base64) => {
     const binary = window.atob(base64);
     const bytes = new Uint8Array(binary.length);
@@ -40,7 +38,6 @@ const DigitalSignature = () => {
     return bytes.buffer;
   };
 
-  // Function to create and download file
   const downloadFile = (filename, content) => {
     const element = document.createElement("a");
     const file = new Blob([content], { type: "text/plain" });
@@ -51,7 +48,6 @@ const DigitalSignature = () => {
     document.body.removeChild(element);
   };
 
-  // Generate RSA key pair using Web Crypto API
   const createKeys = async () => {
     try {
       const keyPair = await window.crypto.subtle.generateKey(
@@ -65,7 +61,6 @@ const DigitalSignature = () => {
         ["sign", "verify"]
       );
 
-      // Export public key
       const publicKeyBuffer = await window.crypto.subtle.exportKey(
         "spki",
         keyPair.publicKey
@@ -73,7 +68,6 @@ const DigitalSignature = () => {
       const publicKeyBase64 = arrayBufferToBase64(publicKeyBuffer);
       const publicKeyPem = `-----BEGIN PUBLIC KEY-----\n${publicKeyBase64}\n-----END PUBLIC KEY-----`;
 
-      // Export private key
       const privateKeyBuffer = await window.crypto.subtle.exportKey(
         "pkcs8",
         keyPair.privateKey
@@ -81,7 +75,6 @@ const DigitalSignature = () => {
       const privateKeyBase64 = arrayBufferToBase64(privateKeyBuffer);
       const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${privateKeyBase64}\n-----END PRIVATE KEY-----`;
 
-      // Download keys
       downloadFile("public_key.pem", publicKeyPem);
       downloadFile("private_key.pem", privateKeyPem);
 
@@ -97,7 +90,6 @@ const DigitalSignature = () => {
     }
   };
 
-  // Sign data using RSA and SHA-256
   const signData = async () => {
     if (!files.dataFile || !files.privateKey) {
       setStatus({
@@ -108,17 +100,14 @@ const DigitalSignature = () => {
     }
 
     try {
-      // Read files
       const data = await files.dataFile.text();
       const privateKeyContent = await files.privateKey.text();
 
-      // Extract base64 from PEM format
       const privateKeyBase64 = privateKeyContent
         .replace("-----BEGIN PRIVATE KEY-----", "")
         .replace("-----END PRIVATE KEY-----", "")
         .replace(/\n/g, "");
 
-      // Import private key
       const privateKeyBuffer = base64ToArrayBuffer(privateKeyBase64);
       const privateKey = await window.crypto.subtle.importKey(
         "pkcs8",
@@ -134,26 +123,28 @@ const DigitalSignature = () => {
       // Create hash of data
       const encoder = new TextEncoder();
       const dataBuffer = encoder.encode(data);
+      const hashBuffer = await window.crypto.subtle.digest("SHA-256", dataBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-      // Sign the data
+      // Sign the hash
       const signature = await window.crypto.subtle.sign(
         {
           name: "RSASSA-PKCS1-v1_5",
         },
         privateKey,
-        dataBuffer
+        hashBuffer
       );
 
-      // Convert signature to base64
       const signatureBase64 = arrayBufferToBase64(signature);
 
-      // Save original data for verification
-      downloadFile("original_data.txt", data);
+      downloadFile("signed_data.txt", data);
       downloadFile("signature.txt", signatureBase64);
+      downloadFile("hash.txt", hashHex);
 
       setStatus({
         type: "success",
-        message: "Data berhasil ditandatangani! File signature telah diunduh.",
+        message: "Data berhasil ditandatangani! File signature dan hash telah diunduh.",
       });
     } catch (error) {
       setStatus({
@@ -163,29 +154,43 @@ const DigitalSignature = () => {
     }
   };
 
-  // Verify signature
-  const verifyData = async () => {
-    if (!files.signatureFile || !files.publicKey || !files.dataFile) {
+  const verifySignature = async () => {
+    if (!files.signatureFile || !files.publicKey || !files.dataFile || !files.hashFile) {
       setStatus({
         type: "error",
-        message: "Mohon upload file signature, data asli, dan public key.",
+        message: "Mohon upload semua file yang diperlukan (data, hash, signature, dan public key).",
       });
       return;
     }
 
     try {
-      // Read files
+      const data = await files.dataFile.text();
       const publicKeyContent = await files.publicKey.text();
       const signatureContent = await files.signatureFile.text();
-      const originalData = await files.dataFile.text();
+      const providedHashHex = await files.hashFile.text();
 
-      // Extract base64 from PEM format
+      // Calculate hash of the provided data
+      const encoder = new TextEncoder();
+      const dataBuffer = encoder.encode(data);
+      const calculatedHashBuffer = await window.crypto.subtle.digest("SHA-256", dataBuffer);
+      const calculatedHashArray = Array.from(new Uint8Array(calculatedHashBuffer));
+      const calculatedHashHex = calculatedHashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+      // Verify hash matches
+      if (calculatedHashHex.toLowerCase() !== providedHashHex.toLowerCase()) {
+        setStatus({
+          type: "error",
+          message: "Verifikasi gagal! Hash data tidak sesuai.",
+        });
+        return;
+      }
+
+      // Import public key
       const publicKeyBase64 = publicKeyContent
         .replace("-----BEGIN PUBLIC KEY-----", "")
         .replace("-----END PUBLIC KEY-----", "")
         .replace(/\n/g, "");
 
-      // Import public key
       const publicKeyBuffer = base64ToArrayBuffer(publicKeyBase64);
       const publicKey = await window.crypto.subtle.importKey(
         "spki",
@@ -198,27 +203,21 @@ const DigitalSignature = () => {
         ["verify"]
       );
 
-      // Convert original data to buffer
-      const encoder = new TextEncoder();
-      const dataBuffer = encoder.encode(originalData);
-
-      // Create signature buffer from base64
+      // Verify signature
       const signatureBuffer = base64ToArrayBuffer(signatureContent.trim());
-
-      // Verify the signature
       const isValid = await window.crypto.subtle.verify(
         {
           name: "RSASSA-PKCS1-v1_5",
         },
         publicKey,
         signatureBuffer,
-        dataBuffer
+        calculatedHashBuffer
       );
 
       if (isValid) {
         setStatus({
           type: "success",
-          message: "Verifikasi berhasil! Tanda tangan valid.",
+          message: "Verifikasi berhasil! Tanda tangan valid dan hash sesuai.",
         });
       } else {
         setStatus({
@@ -289,8 +288,12 @@ const DigitalSignature = () => {
             <TabsContent value="verify-data">
               <div className="space-y-4 p-4">
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium">Upload Data Asli</label>
+                  <label className="block text-sm font-medium">Upload Data File</label>
                   <Input type="file" onChange={(e) => handleFileChange(e, "dataFile")} />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium">Upload Hash File</label>
+                  <Input type="file" onChange={(e) => handleFileChange(e, "hashFile")} />
                 </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-medium">Upload Signature File</label>
@@ -300,7 +303,7 @@ const DigitalSignature = () => {
                   <label className="block text-sm font-medium">Upload Public Key</label>
                   <Input type="file" onChange={(e) => handleFileChange(e, "publicKey")} />
                 </div>
-                <Button onClick={verifyData} className="w-full">
+                <Button onClick={verifySignature} className="w-full">
                   Verify Data
                 </Button>
               </div>
