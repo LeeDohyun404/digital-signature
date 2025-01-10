@@ -138,7 +138,7 @@ const DigitalSignature = () => {
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-      // Sign the data
+      // Sign the hash
       const signature = await window.crypto.subtle.sign(
         {
           name: "RSA-PSS",
@@ -169,20 +169,19 @@ const DigitalSignature = () => {
 
   // Verify signature
   const verifyData = async () => {
-    if (!files.signatureFile || !files.publicKey || !files.dataFile || !files.hashFile) {
+    if (!files.signatureFile || !files.publicKey || !files.hashFile) {
       setStatus({
         type: "error",
-        message: "Mohon upload semua file yang diperlukan.",
+        message: "Mohon upload file signature, hash, dan public key.",
       });
       return;
     }
 
     try {
-      // Read all files
-      const data = await files.dataFile.text();
+      // Read files
       const publicKeyContent = await files.publicKey.text();
       const signatureContent = await files.signatureFile.text();
-      const savedHash = await files.hashFile.text();
+      const hashContent = await files.hashFile.text();
 
       // Extract base64 from PEM format
       const publicKeyBase64 = publicKeyContent
@@ -203,20 +202,8 @@ const DigitalSignature = () => {
         ["verify"]
       );
 
-      // Verify hash
-      const encoder = new TextEncoder();
-      const dataBuffer = encoder.encode(data);
-      const hashBuffer = await window.crypto.subtle.digest("SHA-256", dataBuffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-      if (hashHex !== savedHash) {
-        setStatus({
-          type: "error",
-          message: "Verifikasi gagal! Data telah dimodifikasi.",
-        });
-        return;
-      }
+      // Convert hash to buffer
+      const hashBuffer = new Uint8Array(hashContent.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
 
       // Verify signature
       const signatureBuffer = base64ToArrayBuffer(signatureContent);
@@ -227,13 +214,13 @@ const DigitalSignature = () => {
         },
         publicKey,
         signatureBuffer,
-        dataBuffer
+        hashBuffer
       );
 
       if (isValid) {
         setStatus({
           type: "success",
-          message: "Verifikasi berhasil! Tanda tangan valid dan data tidak dimodifikasi.",
+          message: "Verifikasi berhasil! Tanda tangan valid.",
         });
       } else {
         setStatus({
@@ -302,10 +289,6 @@ const DigitalSignature = () => {
 
             <TabsContent value="verify-data">
               <div className="space-y-4 p-4">
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium">Upload Data File</label>
-                  <Input type="file" onChange={(e) => handleFileChange(e, "dataFile")} />
-                </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-medium">Upload Signature File</label>
                   <Input type="file" onChange={(e) => handleFileChange(e, "signatureFile")} />
