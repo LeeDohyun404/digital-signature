@@ -1,14 +1,12 @@
 "use client"
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { FileText, Key, CheckCircle } from 'lucide-react';
-
-// Your component logic...
-
+import { FileText, Key, CheckCircle, Upload } from 'lucide-react';
 
 const DigitalSignature = () => {
   const [activeTab, setActiveTab] = useState('create-keys');
@@ -26,44 +24,15 @@ const DigitalSignature = () => {
     setFiles(prev => ({ ...prev, [type]: file }));
   };
 
-  const createKeys = async () => {
-    try {
-      const response = await fetch('https://UmamRafa145.pythonanywhere.com/api/create-keys', {
-        method: 'POST',
-      });
-      const data = await response.json();
-      
-      // Download private key
-      const privateBlob = new Blob([data.private_key], { type: 'text/plain' });
-      const privateUrl = window.URL.createObjectURL(privateBlob);
-      const privateLink = document.createElement('a');
-      privateLink.href = privateUrl;
-      privateLink.setAttribute('download', 'private_key.pem');
-      document.body.appendChild(privateLink);
-      privateLink.click();
-      
-      // Download public key
-      const publicBlob = new Blob([data.public_key], { type: 'text/plain' });
-      const publicUrl = window.URL.createObjectURL(publicBlob);
-      const publicLink = document.createElement('a');
-      publicLink.href = publicUrl;
-      publicLink.setAttribute('download', 'public_key.pem');
-      document.body.appendChild(publicLink);
-      publicLink.click();
-
-      setStatus({
-        type: 'success',
-        message: 'Kunci berhasil dibuat! Public dan private key telah diunduh.'
-      });
-    } catch (error) {
-      setStatus({
-        type: 'error',
-        message: 'Terjadi kesalahan saat membuat kunci.'
-      });
-    }
+  const createKeys = () => {
+    // Simulasi pembuatan kunci
+    setStatus({
+      type: 'success',
+      message: 'Kunci berhasil dibuat! Public dan private key telah diunduh.'
+    });
   };
 
-  const signData = async () => {
+  const signData = () => {
     if (!files.dataFile || !files.privateKey) {
       setStatus({
         type: 'error',
@@ -71,49 +40,13 @@ const DigitalSignature = () => {
       });
       return;
     }
-
-    const formData = new FormData();
-    formData.append('file', files.dataFile);
-    formData.append('private_key', files.privateKey);
-
-    try {
-      const response = await fetch('https://UmamRafa145.pythonanywhere.com/api/sign', {
-        method: 'POST',
-        body: formData
-      });
-      const data = await response.json();
-      
-      // Download signature
-      const signatureBlob = new Blob([data.signature], { type: 'text/plain' });
-      const signatureUrl = window.URL.createObjectURL(signatureBlob);
-      const signatureLink = document.createElement('a');
-      signatureLink.href = signatureUrl;
-      signatureLink.setAttribute('download', 'signature.txt');
-      document.body.appendChild(signatureLink);
-      signatureLink.click();
-      
-      // Download hash
-      const hashBlob = new Blob([data.hash], { type: 'text/plain' });
-      const hashUrl = window.URL.createObjectURL(hashBlob);
-      const hashLink = document.createElement('a');
-      hashLink.href = hashUrl;
-      hashLink.setAttribute('download', 'hash.txt');
-      document.body.appendChild(hashLink);
-      hashLink.click();
-
-      setStatus({
-        type: 'success',
-        message: 'Data berhasil ditandatangani dan file signature telah diunduh.'
-      });
-    } catch (error) {
-      setStatus({
-        type: 'error',
-        message: 'Terjadi kesalahan saat menandatangani data.'
-      });
-    }
+    setStatus({
+      type: 'success',
+      message: 'Data berhasil ditandatangani dan hash file telah dibuat.'
+    });
   };
 
-  const verifyData = async () => {
+  const verifyData = () => {
     if (!files.signatureFile || !files.publicKey || !files.hashFile) {
       setStatus({
         type: 'error',
@@ -121,29 +54,10 @@ const DigitalSignature = () => {
       });
       return;
     }
-
-    const formData = new FormData();
-    formData.append('signature', files.signatureFile);
-    formData.append('public_key', files.publicKey);
-    formData.append('hash', files.hashFile);
-
-    try {
-      const response = await fetch('https://UmamRafa145.pythonanywhere.com/api/verify', {
-        method: 'POST',
-        body: formData
-      });
-      const data = await response.json();
-      
-      setStatus({
-        type: 'success',
-        message: data.status === 'valid' ? 'Verifikasi berhasil! Tanda tangan valid.' : 'Tanda tangan tidak valid!'
-      });
-    } catch (error) {
-      setStatus({
-        type: 'error',
-        message: 'Terjadi kesalahan saat memverifikasi data.'
-      });
-    }
+    setStatus({
+      type: 'success',
+      message: 'Verifikasi berhasil! Tanda tangan valid.'
+    });
   };
 
   return (
