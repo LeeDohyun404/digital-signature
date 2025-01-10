@@ -59,7 +59,7 @@ const DigitalSignature = () => {
     try {
       const keyPair = await window.crypto.subtle.generateKey(
         {
-          name: "RSA-PKCS1-v1_5",
+          name: "RSA-PSS",
           modulusLength: 2048,
           publicExponent: new Uint8Array([1, 0, 1]),
           hash: "SHA-256",
@@ -108,7 +108,7 @@ const DigitalSignature = () => {
         "pkcs8",
         privateKeyBuffer,
         {
-          name: "RSA-PKCS1-v1_5",
+          name: "RSA-PSS",
           hash: "SHA-256",
         },
         true,
@@ -122,7 +122,10 @@ const DigitalSignature = () => {
       const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 
       const signature = await window.crypto.subtle.sign(
-        "RSA-PKCS1-v1_5",
+        {
+          name: "RSA-PSS",
+          saltLength: 32,
+        },
         privateKey,
         dataBuffer
       );
@@ -182,7 +185,7 @@ const DigitalSignature = () => {
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">
-            Digital Signature System (RSA + SHA-256)
+            Digital Signature System (RSA-PSS + SHA-256)
           </CardTitle>
         </CardHeader>
         <CardContent>
