@@ -1,19 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { FileText, Key, CheckCircle } from "lucide-react";
-
-// Import modul crypto untuk hashing
-import crypto from "crypto";
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { FileText, Key, CheckCircle, Upload } from 'lucide-react';
 
 const DigitalSignature = () => {
-  const [activeTab, setActiveTab] = useState("create-keys");
-  const [status, setStatus] = useState({ type: "", message: "" });
+  const [activeTab, setActiveTab] = useState('create-keys');
+  const [status, setStatus] = useState({ type: '', message: '' });
   const [files, setFiles] = useState({
     publicKey: null,
     privateKey: null,
@@ -22,104 +19,111 @@ const DigitalSignature = () => {
     signatureFile: null,
   });
 
-  const handleFileChange = (e, type) => {
-    const file = e.target.files[0];
-    setFiles((prev) => ({ ...prev, [type]: file }));
+  // Fungsi untuk membuat kunci RSA
+  const createKeys = async () => {
+    const keyPair = await window.crypto.subtle.generateKey(
+      {
+        name: "RSA-OAEP", // RSA untuk enkripsi
+        modulusLength: 2048, // Panjang kunci RSA
+        publicExponent: new Uint8Array([1, 0, 1]), // Exponent untuk RSA
+        hash: "SHA-256", // Hash menggunakan SHA-256
+      },
+      true,
+      ["encrypt", "decrypt"] // Kunci untuk enkripsi dan dekripsi
+    );
+
+    const privateKey = await window.crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
+    const publicKey = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
+
+    downloadFile("private_key.pem", arrayBufferToBase64(privateKey));
+    downloadFile("public_key.pem", arrayBufferToBase64(publicKey));
+
+    setStatus({ type: 'success', message: 'Kunci berhasil dibuat dan diunduh!' });
   };
 
-  // Fungsi untuk membuat dan mengunduh kunci
-  const createKeys = () => {
-    const publicKey = "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----";
-    const privateKey = "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----";
-
-    const downloadFile = (filename, content) => {
-      const element = document.createElement("a");
-      const file = new Blob([content], { type: "text/plain" });
-      element.href = URL.createObjectURL(file);
-      element.download = filename;
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-    };
-
-    downloadFile("public_key.txt", publicKey);
-    downloadFile("private_key.txt", privateKey);
-
-    setStatus({
-      type: "success",
-      message: "Kunci berhasil dibuat! Public dan private key telah diunduh.",
-    });
-  };
-
-  // Fungsi untuk menandatangani data dan mengunduh file hash dan tanda tangan
+  // Fungsi untuk membuat hash
   const signData = async () => {
     if (!files.dataFile || !files.privateKey) {
       setStatus({
-        type: "error",
-        message: "Mohon upload file data dan private key terlebih dahulu.",
+        type: 'error',
+        message: 'Mohon upload file data dan private key terlebih dahulu.'
       });
       return;
     }
 
-    // Baca file data
-    const data = await files.dataFile.text();
+    const data = await files.dataFile.arrayBuffer();
+    const privateKey = await base64ToArrayBuffer(files.privateKey);
 
-    // Buat hash menggunakan SHA-256
-    const hash = crypto.createHash("sha256").update(data).digest("hex");
+    const hash = await window.crypto.subtle.digest("SHA-256", data);
+    const signature = await window.crypto.subtle.sign(
+      {
+        name: "RSA-PSS",
+        saltLength: 32,
+      },
+      privateKey,
+      hash
+    );
 
-    // Simulasi pembuatan tanda tangan
-    const signature = hash;
+    downloadFile("hash_file.txt", arrayBufferToBase64(hash));
+    downloadFile("signature_file.txt", arrayBufferToBase64(signature));
 
-    // Unduh file hash dan signature
-    const downloadFile = (filename, content) => {
-      const element = document.createElement("a");
-      const file = new Blob([content], { type: "text/plain" });
-      element.href = URL.createObjectURL(file);
-      element.download = filename;
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-    };
-
-    downloadFile("hash_file.txt", hash);
-    downloadFile("signature_file.txt", signature);
-
-    setStatus({
-      type: "success",
-      message: "Data berhasil ditandatangani dan file hash serta signature telah diunduh.",
-    });
+    setStatus({ type: 'success', message: 'Data berhasil ditandatangani dan hash file telah dibuat.' });
   };
 
-  // Fungsi untuk memverifikasi data
+  // Fungsi untuk verifikasi tanda tangan
   const verifyData = async () => {
     if (!files.signatureFile || !files.publicKey || !files.hashFile) {
       setStatus({
-        type: "error",
-        message: "Mohon upload semua file yang diperlukan.",
+        type: 'error',
+        message: 'Mohon upload semua file yang diperlukan.'
       });
       return;
     }
 
-    // Baca file data
-    const data = await files.dataFile.text();
-    const hash = crypto.createHash("sha256").update(data).digest("hex");
+    const publicKey = await base64ToArrayBuffer(files.publicKey);
+    const hash = await base64ToArrayBuffer(files.hashFile);
+    const signature = await base64ToArrayBuffer(files.signatureFile);
 
-    // Baca file hash dan signature
-    const hashFileText = await files.hashFile.text();
-    const signatureFileText = await files.signatureFile.text();
+    const isValid = await window.crypto.subtle.verify(
+      {
+        name: "RSA-PSS",
+        saltLength: 32,
+      },
+      publicKey,
+      signature,
+      hash
+    );
 
-    // Verifikasi apakah hash cocok
-    if (hash === hashFileText.trim() && hash === signatureFileText.trim()) {
-      setStatus({
-        type: "success",
-        message: "Verifikasi berhasil! Tanda tangan valid.",
-      });
-    } else {
-      setStatus({
-        type: "error",
-        message: "Verifikasi gagal! Tanda tangan tidak valid.",
-      });
+    setStatus({
+      type: isValid ? 'success' : 'error',
+      message: isValid ? 'Verifikasi berhasil! Tanda tangan valid.' : 'Verifikasi gagal! Tanda tangan tidak valid.',
+    });
+  };
+
+  // Fungsi bantu untuk konversi array buffer ke base64
+  const arrayBufferToBase64 = (buffer) => {
+    const binary = String.fromCharCode.apply(null, new Uint8Array(buffer));
+    return btoa(binary);
+  };
+
+  // Fungsi bantu untuk konversi base64 ke array buffer
+  const base64ToArrayBuffer = (base64) => {
+    const binary = atob(base64);
+    const buffer = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      buffer[i] = binary.charCodeAt(i);
     }
+    return buffer.buffer;
+  };
+
+  // Fungsi untuk mengunduh file
+  const downloadFile = (filename, content) => {
+    const element = document.createElement('a');
+    const file = new Blob([content], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    element.download = filename;
+    document.body.appendChild(element);
+    element.click();
   };
 
   return (
@@ -147,6 +151,7 @@ const DigitalSignature = () => {
               </TabsTrigger>
             </TabsList>
 
+            {/* Create Keys Tab */}
             <TabsContent value="create-keys">
               <div className="space-y-4 p-4">
                 <div className="text-center">
@@ -157,18 +162,25 @@ const DigitalSignature = () => {
               </div>
             </TabsContent>
 
+            {/* Sign Data Tab */}
             <TabsContent value="sign-data">
               <div className="space-y-4 p-4">
                 <div className="space-y-2">
                   <label className="block text-sm font-medium">Upload Data File</label>
                   <div className="flex items-center gap-2">
-                    <Input type="file" onChange={(e) => handleFileChange(e, "dataFile")} />
+                    <Input
+                      type="file"
+                      onChange={(e) => handleFileChange(e, 'dataFile')}
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-medium">Upload Private Key</label>
                   <div className="flex items-center gap-2">
-                    <Input type="file" onChange={(e) => handleFileChange(e, "privateKey")} />
+                    <Input
+                      type="file"
+                      onChange={(e) => handleFileChange(e, 'privateKey')}
+                    />
                   </div>
                 </div>
                 <Button onClick={signData} className="w-full">
@@ -177,19 +189,29 @@ const DigitalSignature = () => {
               </div>
             </TabsContent>
 
+            {/* Verify Data Tab */}
             <TabsContent value="verify-data">
               <div className="space-y-4 p-4">
                 <div className="space-y-2">
                   <label className="block text-sm font-medium">Upload Signature File</label>
-                  <Input type="file" onChange={(e) => handleFileChange(e, "signatureFile")} />
+                  <Input
+                    type="file"
+                    onChange={(e) => handleFileChange(e, 'signatureFile')}
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-medium">Upload Public Key</label>
-                  <Input type="file" onChange={(e) => handleFileChange(e, "publicKey")} />
+                  <Input
+                    type="file"
+                    onChange={(e) => handleFileChange(e, 'publicKey')}
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-medium">Upload Hash File</label>
-                  <Input type="file" onChange={(e) => handleFileChange(e, "hashFile")} />
+                  <Input
+                    type="file"
+                    onChange={(e) => handleFileChange(e, 'hashFile')}
+                  />
                 </div>
                 <Button onClick={verifyData} className="w-full">
                   Verify Data
@@ -199,8 +221,10 @@ const DigitalSignature = () => {
           </Tabs>
 
           {status.message && (
-            <Alert className={`mt-4 ${status.type === "error" ? "bg-red-50" : "bg-green-50"}`}>
-              <AlertDescription>{status.message}</AlertDescription>
+            <Alert className={`mt-4 ${status.type === 'error' ? 'bg-red-50' : 'bg-green-50'}`}>
+              <AlertDescription>
+                {status.message}
+              </AlertDescription>
             </Alert>
           )}
         </CardContent>
@@ -210,4 +234,4 @@ const DigitalSignature = () => {
 };
 
 export default DigitalSignature;
-      
+    
