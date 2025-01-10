@@ -16,18 +16,22 @@ const DigitalSignature = () => {
     privateKey: null,
     dataFile: null,
     hashFile: null,
+    signatureFile: null
   });
+  
   const [signedData, setSignedData] = useState(null);
+  const [originalData, setOriginalData] = useState(null);
 
+  // Watch for file changes and trigger verification
   useEffect(() => {
-    if (files.dataFile && files.hashFile && files.publicKey) {
+    if (files.dataFile && files.hashFile && files.signatureFile && files.publicKey) {
       verifyData();
     }
-  }, [files.dataFile, files.hashFile, files.publicKey]);
+  }, [files.dataFile, files.hashFile, files.signatureFile, files.publicKey]);
 
   const handleFileChange = (e, type) => {
     const file = e.target.files[0];
-    setFiles((prev) => ({ ...prev, [type]: file }));
+    setFiles(prev => ({ ...prev, [type]: file }));
   };
 
   const arrayBufferToBase64 = (buffer) => {
@@ -111,6 +115,7 @@ const DigitalSignature = () => {
     try {
       const data = await files.dataFile.text();
       const privateKeyContent = await files.privateKey.text();
+      setOriginalData(data); // Save original data for comparison
 
       const privateKeyBase64 = privateKeyContent
         .replace("-----BEGIN PRIVATE KEY-----", "")
@@ -132,33 +137,32 @@ const DigitalSignature = () => {
       const encoder = new TextEncoder();
       const dataBuffer = encoder.encode(data);
       
-      // Convert data to hex
-      const dataHex = arrayBufferToHex(dataBuffer);
-      
-      // Calculate hash of data
+      // Calculate hash
       const hashBuffer = await window.crypto.subtle.digest("SHA-256", dataBuffer);
       const hashHex = arrayBufferToHex(hashBuffer);
 
-      // Sign the data
+      // Sign the hash
       const signature = await window.crypto.subtle.sign(
         "RSASSA-PKCS1-v1_5",
         privateKey,
-        dataBuffer
+        hashBuffer
       );
 
       const signatureHex = arrayBufferToHex(signature);
 
       setSignedData({
-        data: dataHex,
+        data: data,
+        hash: hashHex,
         signature: signatureHex
       });
 
-      downloadFile("signed_data.txt", dataHex);
+      downloadFile("signed_data.txt", data);
+      downloadFile("signature.txt", signatureHex);
       downloadFile("hash.txt", hashHex);
 
       setStatus({ 
         type: "success", 
-        message: "Data berhasil ditandatangani! File data yang ditandatangani dan hash telah diunduh." 
+        message: "Data berhasil ditandatangani! File data, signature, dan hash telah diunduh." 
       });
     } catch (error) {
       setStatus({ type: "error", message: "Gagal menandatangani data: " + error.message });
@@ -166,33 +170,24 @@ const DigitalSignature = () => {
   };
 
   const verifyData = async () => {
-    if (!files.dataFile || !files.hashFile || !files.publicKey) {
+    if (!files.dataFile || !files.hashFile || !files.signatureFile || !files.publicKey) {
       setStatus({ type: "error", message: "Mohon upload semua file yang diperlukan." });
       return;
     }
 
     try {
-      const dataHex = await files.dataFile.text();
+      const currentData = await files.dataFile.text();
       const savedHash = await files.hashFile.text();
+      const signature = await files.signatureFile.text();
       const publicKeyContent = await files.publicKey.text();
 
-      // Convert hex data back to buffer
-      const dataBuffer = hexToArrayBuffer(dataHex);
-      
-      // Calculate hash of current data
-      const hashBuffer = await window.crypto.subtle.digest("SHA-256", dataBuffer);
-      const hashHex = arrayBufferToHex(hashBuffer);
+      // Calculate current hash
+      const encoder = new TextEncoder();
+      const dataBuffer = encoder.encode(currentData);
+      const currentHashBuffer = await window.crypto.subtle.digest("SHA-256", dataBuffer);
+      const currentHashHex = arrayBufferToHex(currentHashBuffer);
 
-      // Verify hash
-      if (hashHex !== savedHash) {
-        setStatus({ 
-          type: "error", 
-          message: "Verifikasi gagal! Data telah dimodifikasi. Hash tidak cocok." 
-        });
-        return;
-      }
-
-      // Try to verify with public key
+      // Import public key
       const publicKeyBase64 = publicKeyContent
         .replace("-----BEGIN PUBLIC KEY-----", "")
         .replace("-----END PUBLIC KEY-----", "")
@@ -210,10 +205,30 @@ const DigitalSignature = () => {
         ["verify"]
       );
 
-      setStatus({ 
-        type: "success", 
-        message: "Verifikasi berhasil! Data valid dan tidak dimodifikasi." 
-      });
+      // Verify signature
+      const signatureBuffer = hexToArrayBuffer(signature);
+      const hashBuffer = hexToArrayBuffer(savedHash);
+      const isSignatureValid = await window.crypto.subtle.verify(
+        "RSASSA-PKCS1-v1_5",
+        publicKey,
+        signatureBuffer,
+        hashBuffer
+      );
+
+      // Compare hashes
+      const isHashValid = currentHashHex === savedHash;
+
+      if (isSignatureValid && isHashValid) {
+        setStatus({
+          type: "success",
+          message: "Verifikasi berhasil! Data valid dan tidak dimodifikasi."
+        });
+      } else {
+        setStatus({
+          type: "error",
+          message: "Verifikasi gagal! Data telah dimodifikasi atau tanda tangan tidak valid."
+        });
+      }
     } catch (error) {
       setStatus({ type: "error", message: "Gagal memverifikasi data: " + error.message });
     }
@@ -273,8 +288,12 @@ const DigitalSignature = () => {
             <TabsContent value="verify-data">
               <div className="space-y-4 p-4">
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium">Upload Data File yang Ditandatangani (Hex)</label>
+                  <label className="block text-sm font-medium">Upload Data File</label>
                   <Input type="file" onChange={(e) => handleFileChange(e, "dataFile")} />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium">Upload Signature File</label>
+                  <Input type="file" onChange={(e) => handleFileChange(e, "signatureFile")} />
                 </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-medium">Upload Hash File</label>
