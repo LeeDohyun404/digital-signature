@@ -134,9 +134,6 @@ const DigitalSignature = () => {
       // Create hash of data
       const encoder = new TextEncoder();
       const dataBuffer = encoder.encode(data);
-      const hashBuffer = await window.crypto.subtle.digest("SHA-256", dataBuffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
       // Sign the data
       const signature = await window.crypto.subtle.sign(
@@ -150,13 +147,13 @@ const DigitalSignature = () => {
       // Convert signature to base64
       const signatureBase64 = arrayBufferToBase64(signature);
 
-      // Download files
+      // Save original data for verification
+      downloadFile("original_data.txt", data);
       downloadFile("signature.txt", signatureBase64);
-      downloadFile("hash.txt", hashHex);
 
       setStatus({
         type: "success",
-        message: "Data berhasil ditandatangani! File signature dan hash telah diunduh.",
+        message: "Data berhasil ditandatangani! File signature telah diunduh.",
       });
     } catch (error) {
       setStatus({
@@ -168,10 +165,10 @@ const DigitalSignature = () => {
 
   // Verify signature
   const verifyData = async () => {
-    if (!files.signatureFile || !files.publicKey || !files.hashFile) {
+    if (!files.signatureFile || !files.publicKey || !files.dataFile) {
       setStatus({
         type: "error",
-        message: "Mohon upload file signature, hash, dan public key.",
+        message: "Mohon upload file signature, data asli, dan public key.",
       });
       return;
     }
@@ -180,7 +177,7 @@ const DigitalSignature = () => {
       // Read files
       const publicKeyContent = await files.publicKey.text();
       const signatureContent = await files.signatureFile.text();
-      const hashContent = await files.hashFile.text();
+      const originalData = await files.dataFile.text();
 
       // Extract base64 from PEM format
       const publicKeyBase64 = publicKeyContent
@@ -201,10 +198,9 @@ const DigitalSignature = () => {
         ["verify"]
       );
 
-      // Convert hash hex string to bytes
-      const hashBytes = new Uint8Array(
-        hashContent.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
-      );
+      // Convert original data to buffer
+      const encoder = new TextEncoder();
+      const dataBuffer = encoder.encode(originalData);
 
       // Create signature buffer from base64
       const signatureBuffer = base64ToArrayBuffer(signatureContent.trim());
@@ -216,7 +212,7 @@ const DigitalSignature = () => {
         },
         publicKey,
         signatureBuffer,
-        hashBytes
+        dataBuffer
       );
 
       if (isValid) {
@@ -293,12 +289,12 @@ const DigitalSignature = () => {
             <TabsContent value="verify-data">
               <div className="space-y-4 p-4">
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium">Upload Signature File</label>
-                  <Input type="file" onChange={(e) => handleFileChange(e, "signatureFile")} />
+                  <label className="block text-sm font-medium">Upload Data Asli</label>
+                  <Input type="file" onChange={(e) => handleFileChange(e, "dataFile")} />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium">Upload Hash File</label>
-                  <Input type="file" onChange={(e) => handleFileChange(e, "hashFile")} />
+                  <label className="block text-sm font-medium">Upload Signature File</label>
+                  <Input type="file" onChange={(e) => handleFileChange(e, "signatureFile")} />
                 </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-medium">Upload Public Key</label>
