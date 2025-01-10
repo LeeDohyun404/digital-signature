@@ -8,6 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FileText, Key, CheckCircle } from "lucide-react";
 
+// Import modul crypto untuk hashing
+import crypto from "crypto";
+
 const DigitalSignature = () => {
   const [activeTab, setActiveTab] = useState("create-keys");
   const [status, setStatus] = useState({ type: "", message: "" });
@@ -49,7 +52,7 @@ const DigitalSignature = () => {
   };
 
   // Fungsi untuk menandatangani data dan mengunduh file hash dan tanda tangan
-  const signData = () => {
+  const signData = async () => {
     if (!files.dataFile || !files.privateKey) {
       setStatus({
         type: "error",
@@ -58,10 +61,16 @@ const DigitalSignature = () => {
       return;
     }
 
-    // Simulasi pembuatan hash dan tanda tangan
-    const hashFileContent = "Simulasi hash file: 123456abcdef";
-    const signatureFileContent = "Simulasi signature: 123456abcdef";
+    // Baca file data
+    const data = await files.dataFile.text();
 
+    // Buat hash menggunakan SHA-256
+    const hash = crypto.createHash("sha256").update(data).digest("hex");
+
+    // Simulasi pembuatan tanda tangan
+    const signature = hash;
+
+    // Unduh file hash dan signature
     const downloadFile = (filename, content) => {
       const element = document.createElement("a");
       const file = new Blob([content], { type: "text/plain" });
@@ -72,8 +81,8 @@ const DigitalSignature = () => {
       document.body.removeChild(element);
     };
 
-    downloadFile("hash_file.txt", hashFileContent);
-    downloadFile("signature_file.txt", signatureFileContent);
+    downloadFile("hash_file.txt", hash);
+    downloadFile("signature_file.txt", signature);
 
     setStatus({
       type: "success",
@@ -91,12 +100,16 @@ const DigitalSignature = () => {
       return;
     }
 
+    // Baca file data
+    const data = await files.dataFile.text();
+    const hash = crypto.createHash("sha256").update(data).digest("hex");
+
     // Baca file hash dan signature
     const hashFileText = await files.hashFile.text();
     const signatureFileText = await files.signatureFile.text();
 
     // Verifikasi apakah hash cocok
-    if (hashFileText.trim() === signatureFileText.trim()) {
+    if (hash === hashFileText.trim() && hash === signatureFileText.trim()) {
       setStatus({
         type: "success",
         message: "Verifikasi berhasil! Tanda tangan valid.",
