@@ -56,7 +56,7 @@ const DigitalSignature = () => {
     try {
       const keyPair = await window.crypto.subtle.generateKey(
         {
-          name: "RSA-PSS",
+          name: "RSASSA-PKCS1-v1_5",
           modulusLength: 2048,
           publicExponent: new Uint8Array([1, 0, 1]),
           hash: "SHA-256",
@@ -97,7 +97,7 @@ const DigitalSignature = () => {
     }
   };
 
-  // Sign data using RSA-PSS and SHA-256
+  // Sign data using RSA and SHA-256
   const signData = async () => {
     if (!files.dataFile || !files.privateKey) {
       setStatus({
@@ -124,7 +124,7 @@ const DigitalSignature = () => {
         "pkcs8",
         privateKeyBuffer,
         {
-          name: "RSA-PSS",
+          name: "RSASSA-PKCS1-v1_5",
           hash: "SHA-256",
         },
         true,
@@ -141,8 +141,7 @@ const DigitalSignature = () => {
       // Sign the data
       const signature = await window.crypto.subtle.sign(
         {
-          name: "RSA-PSS",
-          saltLength: 32,
+          name: "RSASSA-PKCS1-v1_5",
         },
         privateKey,
         dataBuffer
@@ -195,29 +194,29 @@ const DigitalSignature = () => {
         "spki",
         publicKeyBuffer,
         {
-          name: "RSA-PSS",
+          name: "RSASSA-PKCS1-v1_5",
           hash: "SHA-256",
         },
         true,
         ["verify"]
       );
 
-      // Create buffer from hash hex string
-      const hashParts = hashContent.match(/.{1,2}/g);
-      const hashBuffer = new Uint8Array(hashParts.map(byte => parseInt(byte, 16))).buffer;
+      // Convert hash hex string to bytes
+      const hashBytes = new Uint8Array(
+        hashContent.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+      );
 
-      // Create signature buffer
-      const signatureBuffer = base64ToArrayBuffer(signatureContent);
+      // Create signature buffer from base64
+      const signatureBuffer = base64ToArrayBuffer(signatureContent.trim());
 
-      // Verify signature
+      // Verify the signature
       const isValid = await window.crypto.subtle.verify(
         {
-          name: "RSA-PSS",
-          saltLength: 32,
+          name: "RSASSA-PKCS1-v1_5",
         },
         publicKey,
         signatureBuffer,
-        hashBuffer // Use hash buffer directly
+        hashBytes
       );
 
       if (isValid) {
@@ -245,7 +244,7 @@ const DigitalSignature = () => {
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">
-            Digital Signature System (RSA-PSS + SHA-256)
+            Digital Signature System (RSA + SHA-256)
           </CardTitle>
         </CardHeader>
         <CardContent>
