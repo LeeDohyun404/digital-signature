@@ -138,7 +138,7 @@ const DigitalSignature = () => {
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-      // Sign the hash
+      // Sign the data
       const signature = await window.crypto.subtle.sign(
         {
           name: "RSA-PSS",
@@ -202,11 +202,14 @@ const DigitalSignature = () => {
         ["verify"]
       );
 
-      // Convert hash to buffer
-      const hashBuffer = new Uint8Array(hashContent.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+      // Create buffer from hash hex string
+      const hashParts = hashContent.match(/.{1,2}/g);
+      const hashBuffer = new Uint8Array(hashParts.map(byte => parseInt(byte, 16))).buffer;
+
+      // Create signature buffer
+      const signatureBuffer = base64ToArrayBuffer(signatureContent);
 
       // Verify signature
-      const signatureBuffer = base64ToArrayBuffer(signatureContent);
       const isValid = await window.crypto.subtle.verify(
         {
           name: "RSA-PSS",
@@ -214,7 +217,7 @@ const DigitalSignature = () => {
         },
         publicKey,
         signatureBuffer,
-        hashBuffer
+        hashBuffer // Use hash buffer directly
       );
 
       if (isValid) {
@@ -229,6 +232,7 @@ const DigitalSignature = () => {
         });
       }
     } catch (error) {
+      console.error('Verification error:', error);
       setStatus({
         type: "error",
         message: "Gagal memverifikasi tanda tangan: " + error.message,
