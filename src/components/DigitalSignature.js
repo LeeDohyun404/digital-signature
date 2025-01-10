@@ -44,7 +44,6 @@ const DigitalSignature = () => {
     return bytes.buffer;
   };
 
-  // Convert ArrayBuffer to hex string
   const arrayBufferToHex = (buffer) => {
     const byteArray = new Uint8Array(buffer);
     return Array.from(byteArray)
@@ -52,7 +51,6 @@ const DigitalSignature = () => {
       .join('');
   };
 
-  // Convert hex string to ArrayBuffer
   const hexToArrayBuffer = (hex) => {
     const bytes = new Uint8Array(hex.length / 2);
     for (let i = 0; i < hex.length; i += 2) {
@@ -75,7 +73,7 @@ const DigitalSignature = () => {
     try {
       const keyPair = await window.crypto.subtle.generateKey(
         {
-          name: "RSA-PSS",
+          name: "RSASSA-PKCS1-v1_5",
           modulusLength: 2048,
           publicExponent: new Uint8Array([1, 0, 1]),
           hash: "SHA-256",
@@ -124,7 +122,7 @@ const DigitalSignature = () => {
         "pkcs8",
         privateKeyBuffer,
         {
-          name: "RSA-PSS",
+          name: "RSASSA-PKCS1-v1_5",
           hash: "SHA-256",
         },
         true,
@@ -137,16 +135,13 @@ const DigitalSignature = () => {
       // Convert data to hex
       const dataHex = arrayBufferToHex(dataBuffer);
       
-      // Calculate hash of hex data
+      // Calculate hash of data
       const hashBuffer = await window.crypto.subtle.digest("SHA-256", dataBuffer);
       const hashHex = arrayBufferToHex(hashBuffer);
 
       // Sign the data
       const signature = await window.crypto.subtle.sign(
-        {
-          name: "RSA-PSS",
-          saltLength: 32,
-        },
+        "RSASSA-PKCS1-v1_5",
         privateKey,
         dataBuffer
       );
@@ -155,13 +150,16 @@ const DigitalSignature = () => {
 
       setSignedData({
         data: dataHex,
-        signature: signatureHex,
+        signature: signatureHex
       });
 
       downloadFile("signed_data.txt", dataHex);
       downloadFile("hash.txt", hashHex);
 
-      setStatus({ type: "success", message: "Data berhasil ditandatangani! File data yang ditandatangani dan hash telah diunduh." });
+      setStatus({ 
+        type: "success", 
+        message: "Data berhasil ditandatangani! File data yang ditandatangani dan hash telah diunduh." 
+      });
     } catch (error) {
       setStatus({ type: "error", message: "Gagal menandatangani data: " + error.message });
     }
@@ -194,6 +192,24 @@ const DigitalSignature = () => {
         return;
       }
 
+      // Try to verify with public key
+      const publicKeyBase64 = publicKeyContent
+        .replace("-----BEGIN PUBLIC KEY-----", "")
+        .replace("-----END PUBLIC KEY-----", "")
+        .replace(/\n/g, "");
+
+      const publicKeyBuffer = base64ToArrayBuffer(publicKeyBase64);
+      const publicKey = await window.crypto.subtle.importKey(
+        "spki",
+        publicKeyBuffer,
+        {
+          name: "RSASSA-PKCS1-v1_5",
+          hash: "SHA-256",
+        },
+        true,
+        ["verify"]
+      );
+
       setStatus({ 
         type: "success", 
         message: "Verifikasi berhasil! Data valid dan tidak dimodifikasi." 
@@ -208,7 +224,7 @@ const DigitalSignature = () => {
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">
-            Digital Signature System (RSA-PSS + SHA-256)
+            Digital Signature System (RSA + SHA-256)
           </CardTitle>
         </CardHeader>
         <CardContent>
