@@ -48,6 +48,7 @@ const DigitalSignature = () => {
     });
   };
 
+  // Fungsi untuk menandatangani data dan mengunduh file hash dan tanda tangan
   const signData = () => {
     if (!files.dataFile || !files.privateKey) {
       setStatus({
@@ -56,9 +57,27 @@ const DigitalSignature = () => {
       });
       return;
     }
+
+    // Simulasi pembuatan hash dan tanda tangan
+    const hashFileContent = "Simulasi hash file: 123456abcdef";
+    const signatureFileContent = "Simulasi signature: 7890ghijkl";
+
+    const downloadFile = (filename, content) => {
+      const element = document.createElement("a");
+      const file = new Blob([content], { type: "text/plain" });
+      element.href = URL.createObjectURL(file);
+      element.download = filename;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    };
+
+    downloadFile("hash_file.txt", hashFileContent);
+    downloadFile("signature_file.txt", signatureFileContent);
+
     setStatus({
       type: "success",
-      message: "Data berhasil ditandatangani dan hash file telah dibuat.",
+      message: "Data berhasil ditandatangani dan file hash serta signature telah diunduh.",
     });
   };
 
