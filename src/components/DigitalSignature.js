@@ -1,62 +1,78 @@
-"use client"
+"use client";
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { FileText, Key, CheckCircle, Upload } from 'lucide-react';
+import React, { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FileText, Key, CheckCircle } from "lucide-react";
 
 const DigitalSignature = () => {
-  const [activeTab, setActiveTab] = useState('create-keys');
-  const [status, setStatus] = useState({ type: '', message: '' });
+  const [activeTab, setActiveTab] = useState("create-keys");
+  const [status, setStatus] = useState({ type: "", message: "" });
   const [files, setFiles] = useState({
     publicKey: null,
     privateKey: null,
     dataFile: null,
     hashFile: null,
-    signatureFile: null
+    signatureFile: null,
   });
 
   const handleFileChange = (e, type) => {
     const file = e.target.files[0];
-    setFiles(prev => ({ ...prev, [type]: file }));
+    setFiles((prev) => ({ ...prev, [type]: file }));
   };
 
+  // Fungsi untuk membuat dan mengunduh kunci
   const createKeys = () => {
-    // Simulasi pembuatan kunci
+    const publicKey = "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----";
+    const privateKey = "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----";
+
+    const downloadFile = (filename, content) => {
+      const element = document.createElement("a");
+      const file = new Blob([content], { type: "text/plain" });
+      element.href = URL.createObjectURL(file);
+      element.download = filename;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    };
+
+    downloadFile("public_key.txt", publicKey);
+    downloadFile("private_key.txt", privateKey);
+
     setStatus({
-      type: 'success',
-      message: 'Kunci berhasil dibuat! Public dan private key telah diunduh.'
+      type: "success",
+      message: "Kunci berhasil dibuat! Public dan private key telah diunduh.",
     });
   };
 
   const signData = () => {
     if (!files.dataFile || !files.privateKey) {
       setStatus({
-        type: 'error',
-        message: 'Mohon upload file data dan private key terlebih dahulu.'
+        type: "error",
+        message: "Mohon upload file data dan private key terlebih dahulu.",
       });
       return;
     }
     setStatus({
-      type: 'success',
-      message: 'Data berhasil ditandatangani dan hash file telah dibuat.'
+      type: "success",
+      message: "Data berhasil ditandatangani dan hash file telah dibuat.",
     });
   };
 
   const verifyData = () => {
     if (!files.signatureFile || !files.publicKey || !files.hashFile) {
       setStatus({
-        type: 'error',
-        message: 'Mohon upload semua file yang diperlukan.'
+        type: "error",
+        message: "Mohon upload semua file yang diperlukan.",
       });
       return;
     }
     setStatus({
-      type: 'success',
-      message: 'Verifikasi berhasil! Tanda tangan valid.'
+      type: "success",
+      message: "Verifikasi berhasil! Tanda tangan valid.",
     });
   };
 
@@ -100,19 +116,13 @@ const DigitalSignature = () => {
                 <div className="space-y-2">
                   <label className="block text-sm font-medium">Upload Data File</label>
                   <div className="flex items-center gap-2">
-                    <Input
-                      type="file"
-                      onChange={(e) => handleFileChange(e, 'dataFile')}
-                    />
+                    <Input type="file" onChange={(e) => handleFileChange(e, "dataFile")} />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-medium">Upload Private Key</label>
                   <div className="flex items-center gap-2">
-                    <Input
-                      type="file"
-                      onChange={(e) => handleFileChange(e, 'privateKey')}
-                    />
+                    <Input type="file" onChange={(e) => handleFileChange(e, "privateKey")} />
                   </div>
                 </div>
                 <Button onClick={signData} className="w-full">
@@ -125,24 +135,15 @@ const DigitalSignature = () => {
               <div className="space-y-4 p-4">
                 <div className="space-y-2">
                   <label className="block text-sm font-medium">Upload Signature File</label>
-                  <Input
-                    type="file"
-                    onChange={(e) => handleFileChange(e, 'signatureFile')}
-                  />
+                  <Input type="file" onChange={(e) => handleFileChange(e, "signatureFile")} />
                 </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-medium">Upload Public Key</label>
-                  <Input
-                    type="file"
-                    onChange={(e) => handleFileChange(e, 'publicKey')}
-                  />
+                  <Input type="file" onChange={(e) => handleFileChange(e, "publicKey")} />
                 </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-medium">Upload Hash File</label>
-                  <Input
-                    type="file"
-                    onChange={(e) => handleFileChange(e, 'hashFile')}
-                  />
+                  <Input type="file" onChange={(e) => handleFileChange(e, "hashFile")} />
                 </div>
                 <Button onClick={verifyData} className="w-full">
                   Verify Data
@@ -152,10 +153,8 @@ const DigitalSignature = () => {
           </Tabs>
 
           {status.message && (
-            <Alert className={`mt-4 ${status.type === 'error' ? 'bg-red-50' : 'bg-green-50'}`}>
-              <AlertDescription>
-                {status.message}
-              </AlertDescription>
+            <Alert className={`mt-4 ${status.type === "error" ? "bg-red-50" : "bg-green-50"}`}>
+              <AlertDescription>{status.message}</AlertDescription>
             </Alert>
           )}
         </CardContent>
@@ -165,3 +164,4 @@ const DigitalSignature = () => {
 };
 
 export default DigitalSignature;
+      
